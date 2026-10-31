@@ -16,4 +16,14 @@ pnpm install
 pnpm dev       # web on :5173, mock-server on ws://localhost:8080
 ```
 
-Mock server settings: `PORT`, `SYMBOLS` (number of tickers), `TPS` (ticks per second).
+Run tests with `pnpm test`.
+
+## Mock server
+
+Env defaults: `PORT` (8080), `SYMBOLS` (number of simulated tickers, 50), `TPS` (ticks per second per client, 1000).
+Load can be changed at runtime over the socket (see `apps/mock-server/src/protocol.ts`):
+
+- client → server: `{ "op": "subscribe" | "unsubscribe", "symbols": [...] }`, `{ "op": "config", "tps"?: n, "symbols"?: n }`
+- server → client: tick batches as `[{ "s", "p", "t" }, ...]`, and `{ "type": "config", "tps", "symbols": [...] }` on connect and after every change
+
+Each client receives `TPS` ticks per second spread over the symbols it subscribed to. The server logs the actual sent rate every 5 seconds.
