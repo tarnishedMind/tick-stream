@@ -12,6 +12,7 @@
     "dev:web": "pnpm --filter @tick-stream/web dev",
     "dev:mock": "pnpm --filter @tick-stream/mock-server dev",
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
   }
 }
