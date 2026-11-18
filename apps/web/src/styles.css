@@ -1,0 +1,234 @@
+:root {
+  --bg: #ffffff;
+  --fg: #111827;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+  --panel: #f9fafb;
+  --up: #15803d;
+  --down: #dc2626;
+  --warn: #b45309;
+  color-scheme: light dark;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0f14;
+    --fg: #e5e7eb;
+    --muted: #9ca3af;
+    --line: #1f2937;
+    --panel: #111827;
+    --up: #4ade80;
+    --down: #f87171;
+    --warn: #fbbf24;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 12px 16px 16px;
+  gap: 12px;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+/* Control panel */
+
+.panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+  padding: 10px 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+fieldset.control {
+  border: 0;
+  padding: 0;
+}
+
+fieldset.control legend {
+  float: left;
+  margin-right: 4px;
+  color: var(--muted);
+}
+
+.control label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.control-label {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.control-label strong {
+  display: inline-block;
+  min-width: 6ch;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.tps input[type='range'] {
+  width: 200px;
+}
+
+.symbols input {
+  width: 80px;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.status {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid currentColor;
+  color: var(--muted);
+}
+
+.status-open {
+  color: var(--up);
+}
+
+.status-connecting,
+.status-reconnecting {
+  color: var(--warn);
+}
+
+.stats {
+  display: flex;
+  gap: 20px;
+  margin-left: auto;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.stat-label {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Quotes table */
+
+.quotes-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  /* Scrolling repaints only this layer. */
+  contain: strict;
+}
+
+.quotes {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.quotes th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-weight: 500;
+  text-align: left;
+  padding: 6px 12px;
+}
+
+/* Must match ROW_HEIGHT in QuoteTable.tsx. */
+.quotes tbody tr:not(.spacer) {
+  height: 28px;
+}
+
+.quotes td {
+  padding: 0 12px;
+  /* Inset shadow instead of a border keeps rows exactly ROW_HEIGHT tall. */
+  box-shadow: inset 0 -1px var(--line);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.quotes tr.spacer td {
+  padding: 0;
+  box-shadow: none;
+}
+
+.quotes .num {
+  text-align: right;
+}
+
+.quotes .col-symbol {
+  font-weight: 600;
+}
+
+.up {
+  color: var(--up);
+}
+
+.down {
+  color: var(--down);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.empty {
+  padding: 16px;
+  color: var(--muted);
+}

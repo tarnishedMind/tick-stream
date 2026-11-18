@@ -28,6 +28,7 @@ export class QuoteFeed {
   private readonly refCounts = new Map<string, number>()
   private readonly statusListeners = new Set<() => void>()
   private frame: number | null = null
+  private ticksReceived = 0
 
   constructor(
     private readonly store: QuoteStore,
@@ -47,7 +48,9 @@ export class QuoteFeed {
     }
     adapter.connect({
       onTicks: (ticks) => {
-        if (this.adapter === adapter) this.push(ticks)
+        if (this.adapter !== adapter) return
+        this.ticksReceived += ticks.length
+        this.push(ticks)
       },
       onOpen: () => {
         if (this.adapter === adapter && this.refCounts.size > 0) {
@@ -86,6 +89,15 @@ export class QuoteFeed {
     this.statusListeners.add(listener)
     return () => this.statusListeners.delete(listener)
   }
+
+  /**
+   * Total ticks delivered by adapters since the feed was created, before
+   * filtering and coalescing. Monotonic; sample it to get a rate.
+   */
+  getTicksReceived = (): number => this.ticksReceived
+
+  /** Number of symbols currently subscribed upstream. */
+  subscribedCount = (): number => this.refCounts.size
 
   /** Symbols with at least one subscriber. Exposed for debugging and tests. */
   subscribedSymbols(): string[] {

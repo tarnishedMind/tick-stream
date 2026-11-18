@@ -39,3 +39,14 @@ Each client receives `TPS` ticks per second spread over the symbols it subscribe
 
 Aggregate trades map to ticks as `{ s: symbol, p: Number(price), t: tradeTime }`.
 
+
+## Quotes table and control panel
+
+The web app is one screen: a control panel above a virtualized quotes table.
+
+- **Table** (`apps/web/src/components/QuoteTable.tsx`): TanStack Table defines the columns (symbol, last price, change vs the first price seen this session, last update time); TanStack Virtual mounts only the rows in and around the viewport (fixed 28 px rows). Each mounted `QuoteRow` subscribes its symbol through `useQuote` and releases it on unmount, so the feed only subscribes visible rows. Rows are memoized on the TanStack row object and re-render only when their own quote changes. The price flash runs on `el.animate()`, outside React state.
+- **Source switch**: Mock / Binance. The feed closes the current adapter before connecting the next one, and the table remounts against the new symbol list, so there is one data socket at a time.
+- **Ticks/sec slider** (mock only) and **symbol count**: sent to the mock server as a `config` message. For Binance the count picks the first N of the default symbols.
+- **Readouts**: FPS (frames counted on `requestAnimationFrame`, rolling 1 s window), received ticks/sec (every tick the adapter delivers, same window) and the number of subscribed rows. They are measured every frame and displayed 4 times a second.
+
+To try 1000 symbols, start the mock server with `SYMBOLS=1000` or type 1000 into the symbol count.

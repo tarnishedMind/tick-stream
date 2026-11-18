@@ -11,7 +11,8 @@ export function QuotesProvider({ value, children }: { value: Quotes; children: R
   return <QuotesContext.Provider value={value}>{children}</QuotesContext.Provider>
 }
 
-function useQuotes(): Quotes {
+/** The store and feed from the nearest <QuotesProvider>. */
+export function useQuotes(): Quotes {
   const quotes = useContext(QuotesContext)
   if (!quotes) throw new Error('useQuote must be used inside <QuotesProvider>')
   return quotes

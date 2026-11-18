@@ -141,3 +141,31 @@ describe('QuoteFeed source switching', () => {
     expect(listener).toHaveBeenCalledTimes(3)
   })
 })
+
+describe('QuoteFeed counters', () => {
+  it('counts every tick an adapter delivers, including ignored ones', () => {
+    connected('A')
+    adapter.emit({ s: 'A', p: 1, t: 1 }, { s: 'A', p: 2, t: 2 }, { s: 'Z', p: 9, t: 1 })
+    expect(feed.getTicksReceived()).toBe(3)
+    frames.runFrame()
+    expect(feed.getTicksReceived()).toBe(3)
+  })
+
+  it('does not count ticks from a replaced adapter', () => {
+    connected('A')
+    const old = adapter
+    feed.setAdapter(new FakeAdapter())
+    old.handlers?.onTicks([{ s: 'A', p: 1, t: 1 }])
+    expect(feed.getTicksReceived()).toBe(0)
+  })
+
+  it('reports how many symbols are subscribed', () => {
+    feed.retain('A')
+    feed.retain('A')
+    feed.retain('B')
+    expect(feed.subscribedCount()).toBe(2)
+    feed.release('A')
+    feed.release('A')
+    expect(feed.subscribedCount()).toBe(1)
+  })
+})

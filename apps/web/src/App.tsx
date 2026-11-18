@@ -1,5 +1,6 @@
-import { useEffect, useState, useSyncExternalStore } from 'react'
-import { QuoteRow } from './components/QuoteRow'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { ControlPanel, type Source } from './components/ControlPanel'
+import { QuoteTable } from './components/QuoteTable'
 import {
   BinanceAdapter,
   DEFAULT_BINANCE_SYMBOLS,
@@ -11,12 +12,13 @@ import {
   type Quotes,
 } from './data'
 
-/** Rows rendered by the debug view. The real table (M4) virtualizes all symbols. */
-const MAX_ROWS = 100
+/** Same bound as the mock server (apps/mock-server/src/protocol.ts LIMITS). */
+const MAX_MOCK_SYMBOLS = 10_000
+const NO_SYMBOLS: readonly string[] = []
 
-type Source = 'mock' | 'binance'
+type AppQuotes = Quotes & { mock: MockAdapter; binance: BinanceAdapter }
 
-function createQuotes(): Quotes & { mock: MockAdapter; binance: BinanceAdapter } {
+function createQuotes(): AppQuotes {
   const store = new QuoteStore()
   return { store, feed: new QuoteFeed(store), mock: new MockAdapter(), binance: new BinanceAdapter() }
 }
@@ -25,6 +27,7 @@ export function App() {
   const [quotes] = useState(createQuotes)
   const [source, setSource] = useState<Source>('mock')
 
+  // One adapter at a time: switching closes the previous socket before the next one opens.
   useEffect(() => {
     quotes.feed.setAdapter(source === 'mock' ? quotes.mock : quotes.binance)
     return () => quotes.feed.setAdapter(null)
@@ -32,98 +35,51 @@ export function App() {
 
   return (
     <QuotesProvider value={quotes}>
-      <main style={{ fontFamily: 'system-ui, sans-serif', padding: 16 }}>
-        <h1>TickStream</h1>
-        <p>
-          Source:{' '}
-          {(['mock', 'binance'] as const).map((s) => (
-            <label key={s} style={{ marginRight: 12 }}>
-              <input type="radio" name="source" checked={source === s} onChange={() => setSource(s)} /> {s}
-            </label>
-          ))}
-        </p>
-        {source === 'mock' ? <MockDebugView mock={quotes.mock} /> : <BinanceDebugView />}
-      </main>
+      <Screen quotes={quotes} source={source} onSourceChange={setSource} />
     </QuotesProvider>
   )
 }
 
-/** Temporary screen for the Binance source. Replaced by the quotes table in M4. */
-function BinanceDebugView() {
+function Screen({ quotes, source, onSourceChange }: { quotes: AppQuotes; source: Source; onSourceChange(s: Source): void }) {
   const status = useFeedStatus()
+  const mockConfig = useSyncExternalStore(quotes.mock.onConfig, quotes.mock.getConfig)
+  const mockSymbols = useStableArray(mockConfig?.symbols ?? NO_SYMBOLS)
+
+  const [binanceCount, setBinanceCount] = useState(DEFAULT_BINANCE_SYMBOLS.length)
+  const binanceSymbols = useMemo(() => DEFAULT_BINANCE_SYMBOLS.slice(0, binanceCount), [binanceCount])
+
+  const isMock = source === 'mock'
+  const symbols = isMock ? mockSymbols : binanceSymbols
+
   return (
-    <>
-      <span>
-        Binance: <strong>{status}</strong>, {DEFAULT_BINANCE_SYMBOLS.length} symbols
-      </span>
-      <QuoteTable symbols={DEFAULT_BINANCE_SYMBOLS} />
-    </>
+    <main className="app">
+      <header className="app-header">
+        <h1>TickStream</h1>
+      </header>
+      <ControlPanel
+        source={source}
+        onSourceChange={onSourceChange}
+        status={status}
+        tps={isMock ? (mockConfig?.tps ?? null) : null}
+        onTpsChange={(tps) => quotes.mock.setLoad({ tps })}
+        symbolCount={symbols.length}
+        maxSymbols={isMock ? MAX_MOCK_SYMBOLS : DEFAULT_BINANCE_SYMBOLS.length}
+        onSymbolCountChange={(n) => (isMock ? quotes.mock.setLoad({ symbols: n }) : setBinanceCount(n))}
+      />
+      {/* Keyed by source: a switch resets scroll and remounts rows against the new symbol list. */}
+      <QuoteTable key={source} symbols={symbols} />
+    </main>
   )
 }
 
-/** Temporary screen to exercise the mock source end to end. Replaced by the control panel in M4. */
-function MockDebugView({ mock }: { mock: MockAdapter }) {
-  const status = useFeedStatus()
-  const config = useSyncExternalStore(mock.onConfig, mock.getConfig)
-  const symbols = config?.symbols.slice(0, MAX_ROWS) ?? []
-
-  return (
-    <>
-      <section style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span>
-          Mock server: <strong>{status}</strong>
-        </span>
-        {config && (
-          <>
-            <label>
-              Ticks/sec: <strong>{config.tps.toLocaleString('en-US')}</strong>{' '}
-              <input
-                type="range"
-                min={0}
-                max={50_000}
-                step={100}
-                defaultValue={config.tps}
-                onChange={(e) => mock.setLoad({ tps: Number(e.currentTarget.value) })}
-              />
-            </label>
-            <label>
-              Symbols:{' '}
-              <input
-                type="number"
-                min={1}
-                max={10_000}
-                defaultValue={config.symbols.length}
-                onBlur={(e) => mock.setLoad({ symbols: Number(e.currentTarget.value) })}
-                style={{ width: 80 }}
-              />
-            </label>
-            <span>
-              Showing {symbols.length} of {config.symbols.length}
-            </span>
-          </>
-        )}
-      </section>
-      <QuoteTable symbols={symbols} />
-    </>
-  )
-}
-
-function QuoteTable({ symbols }: { symbols: readonly string[] }) {
-  return (
-    <table style={{ marginTop: 16, borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
-      <thead>
-        <tr>
-          <th align="left">Symbol</th>
-          <th align="right">Price</th>
-          <th align="right">Change</th>
-          <th align="right">Time</th>
-        </tr>
-      </thead>
-      <tbody>
-        {symbols.map((s) => (
-          <QuoteRow key={s} symbol={s} />
-        ))}
-      </tbody>
-    </table>
-  )
+/**
+ * The mock server re-sends its full symbol list with every config change
+ * (e.g. each slider step). Keep the previous array when the contents match,
+ * so the table does not rebuild its rows and re-render every visible row.
+ */
+function useStableArray(next: readonly string[]): readonly string[] {
+  const ref = useRef(next)
+  const prev = ref.current
+  if (prev !== next && (prev.length !== next.length || prev.some((s, i) => s !== next[i]))) ref.current = next
+  return ref.current
 }
