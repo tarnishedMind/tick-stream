@@ -1,30 +1,63 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { QuoteRow } from './components/QuoteRow'
-import { MockAdapter, QuoteFeed, QuoteStore, QuotesProvider, useFeedStatus, type Quotes } from './data'
+import {
+  BinanceAdapter,
+  DEFAULT_BINANCE_SYMBOLS,
+  MockAdapter,
+  QuoteFeed,
+  QuoteStore,
+  QuotesProvider,
+  useFeedStatus,
+  type Quotes,
+} from './data'
 
 /** Rows rendered by the debug view. The real table (M4) virtualizes all symbols. */
 const MAX_ROWS = 100
 
-function createQuotes(): Quotes & { mock: MockAdapter } {
+type Source = 'mock' | 'binance'
+
+function createQuotes(): Quotes & { mock: MockAdapter; binance: BinanceAdapter } {
   const store = new QuoteStore()
-  return { store, feed: new QuoteFeed(store), mock: new MockAdapter() }
+  return { store, feed: new QuoteFeed(store), mock: new MockAdapter(), binance: new BinanceAdapter() }
 }
 
 export function App() {
   const [quotes] = useState(createQuotes)
+  const [source, setSource] = useState<Source>('mock')
 
   useEffect(() => {
-    quotes.feed.setAdapter(quotes.mock)
+    quotes.feed.setAdapter(source === 'mock' ? quotes.mock : quotes.binance)
     return () => quotes.feed.setAdapter(null)
-  }, [quotes])
+  }, [quotes, source])
 
   return (
     <QuotesProvider value={quotes}>
       <main style={{ fontFamily: 'system-ui, sans-serif', padding: 16 }}>
         <h1>TickStream</h1>
-        <MockDebugView mock={quotes.mock} />
+        <p>
+          Source:{' '}
+          {(['mock', 'binance'] as const).map((s) => (
+            <label key={s} style={{ marginRight: 12 }}>
+              <input type="radio" name="source" checked={source === s} onChange={() => setSource(s)} /> {s}
+            </label>
+          ))}
+        </p>
+        {source === 'mock' ? <MockDebugView mock={quotes.mock} /> : <BinanceDebugView />}
       </main>
     </QuotesProvider>
+  )
+}
+
+/** Temporary screen for the Binance source. Replaced by the quotes table in M4. */
+function BinanceDebugView() {
+  const status = useFeedStatus()
+  return (
+    <>
+      <span>
+        Binance: <strong>{status}</strong>, {DEFAULT_BINANCE_SYMBOLS.length} symbols
+      </span>
+      <QuoteTable symbols={DEFAULT_BINANCE_SYMBOLS} />
+    </>
   )
 }
 
@@ -70,21 +103,27 @@ function MockDebugView({ mock }: { mock: MockAdapter }) {
           </>
         )}
       </section>
-      <table style={{ marginTop: 16, borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
-        <thead>
-          <tr>
-            <th align="left">Symbol</th>
-            <th align="right">Price</th>
-            <th align="right">Change</th>
-            <th align="right">Time</th>
-          </tr>
-        </thead>
-        <tbody>
-          {symbols.map((s) => (
-            <QuoteRow key={s} symbol={s} />
-          ))}
-        </tbody>
-      </table>
+      <QuoteTable symbols={symbols} />
     </>
+  )
+}
+
+function QuoteTable({ symbols }: { symbols: readonly string[] }) {
+  return (
+    <table style={{ marginTop: 16, borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
+      <thead>
+        <tr>
+          <th align="left">Symbol</th>
+          <th align="right">Price</th>
+          <th align="right">Change</th>
+          <th align="right">Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        {symbols.map((s) => (
+          <QuoteRow key={s} symbol={s} />
+        ))}
+      </tbody>
+    </table>
   )
 }

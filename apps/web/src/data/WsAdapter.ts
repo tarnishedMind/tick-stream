@@ -75,12 +75,37 @@ export abstract class WsAdapter implements Adapter {
     if (socket) {
       socket.onopen = socket.onclose = socket.onerror = socket.onmessage = null
       socket.close()
+      this.onSocketClose()
     }
     this.handlers?.onStatus('closed')
   }
 
   protected send(data: string): void {
     if (this.socket?.readyState === OPEN) this.socket.send(data)
+  }
+
+  protected isOpen(): boolean {
+    return this.socket?.readyState === OPEN
+  }
+
+  /** Called when a socket opens, before the feed is told to resubscribe. */
+  protected onSocketOpen(): void {}
+
+  /** Called when the current socket goes away: dropped, replaced by `reconnect()`, or closed by the user. */
+  protected onSocketClose(): void {}
+
+  /**
+   * Drop the current socket and reconnect with backoff. For subclasses that
+   * detect a dead connection the browser has not noticed (half-open TCP).
+   */
+  protected reconnect(): void {
+    const socket = this.socket
+    if (!socket || this.closedByUser) return
+    this.socket = null
+    socket.onopen = socket.onclose = socket.onerror = socket.onmessage = null
+    socket.close()
+    this.onSocketClose()
+    this.scheduleReconnect()
   }
 
   private open(status: 'connecting' | 'reconnecting'): void {
@@ -93,6 +118,7 @@ export abstract class WsAdapter implements Adapter {
 
     socket.onopen = () => {
       this.attempt = 0
+      this.onSocketOpen()
       handlers.onStatus('open')
       handlers.onOpen()
     }
@@ -105,6 +131,7 @@ export abstract class WsAdapter implements Adapter {
     socket.onclose = () => {
       if (this.socket !== socket || this.closedByUser) return
       this.socket = null
+      this.onSocketClose()
       this.scheduleReconnect()
     }
   }

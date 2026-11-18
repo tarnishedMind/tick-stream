@@ -1,0 +1,36 @@
+/**
+ * Default Binance spot symbols: liquid USDT pairs, so every row updates within
+ * seconds. Symbols use Binance's upper case format, which is also the app's.
+ */
+export const DEFAULT_BINANCE_SYMBOLS: readonly string[] = [
+  'BTCUSDT',
+  'ETHUSDT',
+  'BNBUSDT',
+  'SOLUSDT',
+  'XRPUSDT',
+  'DOGEUSDT',
+  'ADAUSDT',
+  'TRXUSDT',
+  'AVAXUSDT',
+  'LINKUSDT',
+  'DOTUSDT',
+  'LTCUSDT',
+  'BCHUSDT',
+  'NEARUSDT',
+  'SUIUSDT',
+  'APTUSDT',
+  'ARBUSDT',
+  'OPUSDT',
+  'UNIUSDT',
+  'ATOMUSDT',
+  'FILUSDT',
+  'ETCUSDT',
+  'PEPEUSDT',
+  'SHIBUSDT',
+  'TONUSDT',
+  'POLUSDT',
+  'ICPUSDT',
+  'INJUSDT',
+  'AAVEUSDT',
+  'XLMUSDT',
+]

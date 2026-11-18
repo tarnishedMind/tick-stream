@@ -27,3 +27,15 @@ Load can be changed at runtime over the socket (see `apps/mock-server/src/protoc
 - server → client: tick batches as `[{ "s", "p", "t" }, ...]`, and `{ "type": "config", "tps", "symbols": [...] }` on connect and after every change
 
 Each client receives `TPS` ticks per second spread over the symbols it subscribed to. The server logs the actual sent rate every 5 seconds.
+
+## Binance source
+
+`BinanceAdapter` (`apps/web/src/data/adapters/`) streams live spot trades from the market-data-only endpoint `wss://data-stream.binance.vision/ws`, one `<symbol>@aggTrade` stream per symbol on a single socket. Default symbols (30 liquid USDT pairs) are in `binanceSymbols.ts`.
+
+- Subscriptions are changed over the open socket with `SUBSCRIBE` / `UNSUBSCRIBE` frames carrying increasing request ids. Error replies are logged and the rejected streams are dropped.
+- Changes are coalesced: a burst of row mounts becomes one frame, and a subscribe immediately undone by an unsubscribe sends nothing.
+- Binance limits: control frames are sent at most 3 per second (the server drops connections above 5 incoming messages/sec, pongs included), at most 200 streams per frame, and at most 1024 streams per connection (extra symbols are skipped with a warning).
+- The 24h forced disconnect, network drops and an unresponsive socket (no data for 30 s while subscribed) all go through the shared reconnect with backoff, after which the feed resubscribes.
+
+Aggregate trades map to ticks as `{ s: symbol, p: Number(price), t: tradeTime }`.
+
