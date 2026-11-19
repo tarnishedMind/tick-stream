@@ -1,44 +1,11 @@
-/**
- * Wire protocol between the mock server and the web app's MockAdapter.
- * The web app keeps its own copy of these types (apps/web/src/data/adapters/mockProtocol.ts);
- * keep the two in sync.
- *
- * Server → client:
- *   - RawTick[]            a batch of ticks (arrays are always tick batches)
- *   - ServerConfigMessage  current load settings and symbol list; sent on
- *                          connect and broadcast after every config change
- *
- * Client → server: ClientMessage.
- */
+import { parseJson, type ClientMessage } from '@tick-stream/protocol'
 
-export type RawTick = { s: string; p: number; t: number }
+export type { ClientMessage, LoadConfig, RawTick, ServerConfigMessage } from '@tick-stream/protocol'
+export { LIMITS } from '@tick-stream/protocol'
 
-export type LoadConfig = {
-  /** Ticks per second sent to each client, spread over its subscribed symbols. */
-  tps: number
-  /** Number of symbols the server simulates. */
-  symbols: number
-}
-
-export type ServerConfigMessage = { type: 'config'; tps: number; symbols: string[] }
-
-export type ClientMessage =
-  | { op: 'subscribe'; symbols: string[] }
-  | { op: 'unsubscribe'; symbols: string[] }
-  | { op: 'config'; tps?: number; symbols?: number }
-
-export const LIMITS = {
-  tps: { min: 0, max: 200_000 },
-  symbols: { min: 1, max: 10_000 },
-} as const
-
+/** Validate a client frame. Anything that is not a well-formed ClientMessage gives null. */
 export function parseClientMessage(raw: string): ClientMessage | null {
-  let msg: unknown
-  try {
-    msg = JSON.parse(raw)
-  } catch {
-    return null
-  }
+  const msg = parseJson(raw)
   if (typeof msg !== 'object' || msg === null) return null
   const m = msg as Record<string, unknown>
   if ((m.op === 'subscribe' || m.op === 'unsubscribe') && isStringArray(m.symbols)) {
