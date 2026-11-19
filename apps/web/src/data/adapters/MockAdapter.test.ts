@@ -1,20 +1,16 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { FakeSocket } from '../testing'
-import type { RawTick } from '../types'
+import { describe, expect, it, vi } from 'vitest'
+import { fakeSockets, recordingHandlers } from '../../test/fakes'
 import { MockAdapter } from './MockAdapter'
 
 function setup() {
-  const ticks: RawTick[] = []
-  const adapter = new MockAdapter('ws://mock', { createSocket: (url) => new FakeSocket(url) })
-  adapter.connect({ onTicks: (t) => ticks.push(...t), onOpen: () => {}, onStatus: () => {} })
-  const socket = FakeSocket.instances.at(-1)!
+  const sockets = fakeSockets()
+  const { handlers, ticks } = recordingHandlers()
+  const adapter = new MockAdapter('ws://mock', { createSocket: sockets.create })
+  adapter.connect(handlers)
+  const socket = sockets.last()
   socket.serverOpen()
   return { adapter, ticks, socket }
 }
-
-beforeEach(() => {
-  FakeSocket.instances = []
-})
 
 describe('MockAdapter', () => {
   it('connects to the given endpoint', () => {
@@ -36,6 +32,19 @@ describe('MockAdapter', () => {
     expect(adapter.getConfig()).toEqual({ tps: 500, symbols: ['SYM0000', 'SYM0001'] })
     expect(listener).toHaveBeenCalledTimes(1)
     expect(ticks).toEqual([])
+  })
+
+  it('keeps the symbols array while the server re-sends the same list', () => {
+    const { adapter, socket } = setup()
+    socket.serverMessage('{"type":"config","tps":500,"symbols":["SYM0000","SYM0001"]}')
+    const first = adapter.getConfig()!
+    socket.serverMessage('{"type":"config","tps":1000,"symbols":["SYM0000","SYM0001"]}')
+    const second = adapter.getConfig()!
+    expect(second).not.toBe(first)
+    expect(second.tps).toBe(1000)
+    expect(second.symbols).toBe(first.symbols)
+    socket.serverMessage('{"type":"config","tps":1000,"symbols":["SYM0000"]}')
+    expect(adapter.getConfig()!.symbols).toEqual(['SYM0000'])
   })
 
   it('ignores malformed messages', () => {

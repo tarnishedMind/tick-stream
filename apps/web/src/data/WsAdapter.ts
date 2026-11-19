@@ -70,13 +70,7 @@ export abstract class WsAdapter implements Adapter {
     this.closedByUser = true
     if (this.retryTimer !== null) clearTimeout(this.retryTimer)
     this.retryTimer = null
-    const socket = this.socket
-    this.socket = null
-    if (socket) {
-      socket.onopen = socket.onclose = socket.onerror = socket.onmessage = null
-      socket.close()
-      this.onSocketClose()
-    }
+    this.dropSocket(true)
     this.handlers?.onStatus('closed')
   }
 
@@ -99,12 +93,7 @@ export abstract class WsAdapter implements Adapter {
    * detect a dead connection the browser has not noticed (half-open TCP).
    */
   protected reconnect(): void {
-    const socket = this.socket
-    if (!socket || this.closedByUser) return
-    this.socket = null
-    socket.onopen = socket.onclose = socket.onerror = socket.onmessage = null
-    socket.close()
-    this.onSocketClose()
+    if (this.closedByUser || !this.dropSocket(true)) return
     this.scheduleReconnect()
   }
 
@@ -130,10 +119,26 @@ export abstract class WsAdapter implements Adapter {
     socket.onerror = () => {}
     socket.onclose = () => {
       if (this.socket !== socket || this.closedByUser) return
-      this.socket = null
-      this.onSocketClose()
+      this.dropSocket(false)
       this.scheduleReconnect()
     }
+  }
+
+  /**
+   * Forget the current socket and run `onSocketClose`. With `close`, also
+   * detach its handlers and close it (for sockets that are still alive).
+   * Returns false when there was no socket.
+   */
+  private dropSocket(close: boolean): boolean {
+    const socket = this.socket
+    if (!socket) return false
+    this.socket = null
+    if (close) {
+      socket.onopen = socket.onclose = socket.onerror = socket.onmessage = null
+      socket.close()
+    }
+    this.onSocketClose()
+    return true
   }
 
   private scheduleReconnect(): void {

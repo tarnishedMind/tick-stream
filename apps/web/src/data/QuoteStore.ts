@@ -1,6 +1,5 @@
+import { Emitter } from './Emitter'
 import type { Quote, RawTick } from './types'
-
-type Listener = () => void
 
 /**
  * Quote state kept outside React. Listeners subscribe per symbol, so a batch
@@ -8,22 +7,22 @@ type Listener = () => void
  */
 export class QuoteStore {
   private readonly quotes = new Map<string, Quote>()
-  private readonly listeners = new Map<string, Set<Listener>>()
+  private readonly listeners = new Map<string, Emitter>()
 
   get(symbol: string): Quote | undefined {
     return this.quotes.get(symbol)
   }
 
-  listen(symbol: string, listener: Listener): () => void {
-    let set = this.listeners.get(symbol)
-    if (!set) {
-      set = new Set()
-      this.listeners.set(symbol, set)
+  listen(symbol: string, listener: () => void): () => void {
+    let emitter = this.listeners.get(symbol)
+    if (!emitter) {
+      emitter = new Emitter()
+      this.listeners.set(symbol, emitter)
     }
-    set.add(listener)
+    const unlisten = emitter.listen(listener)
     return () => {
-      set.delete(listener)
-      if (set.size === 0) this.listeners.delete(symbol)
+      unlisten()
+      if (emitter.size === 0) this.listeners.delete(symbol)
     }
   }
 
@@ -47,14 +46,11 @@ export class QuoteStore {
       })
       changed.push(tick.s)
     }
-    for (const symbol of changed) {
-      const set = this.listeners.get(symbol)
-      if (set) for (const listener of set) listener()
-    }
+    for (const symbol of changed) this.listeners.get(symbol)?.emit()
   }
 
   clear(): void {
     this.quotes.clear()
-    for (const set of this.listeners.values()) for (const listener of set) listener()
+    for (const emitter of this.listeners.values()) emitter.emit()
   }
 }

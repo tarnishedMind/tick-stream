@@ -1,5 +1,7 @@
+import type { RawTick } from '@tick-stream/protocol'
+
 /** Normalized tick every adapter produces: symbol, price, exchange timestamp (ms). */
-export type RawTick = { s: string; p: number; t: number }
+export type { RawTick }
 
 /** Latest known state of one symbol, as kept by the store. Treated as immutable. */
 export type Quote = {

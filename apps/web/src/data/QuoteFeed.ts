@@ -1,3 +1,4 @@
+import { Emitter } from './Emitter'
 import type { QuoteStore } from './QuoteStore'
 import type { Adapter, ConnectionStatus, RawTick } from './types'
 
@@ -26,7 +27,7 @@ export class QuoteFeed {
   private status: ConnectionStatus = 'idle'
   private readonly buffer = new Map<string, RawTick>()
   private readonly refCounts = new Map<string, number>()
-  private readonly statusListeners = new Set<() => void>()
+  private readonly statusChanged = new Emitter()
   private frame: number | null = null
   private ticksReceived = 0
 
@@ -85,10 +86,7 @@ export class QuoteFeed {
 
   getStatus = (): ConnectionStatus => this.status
 
-  onStatus = (listener: () => void): (() => void) => {
-    this.statusListeners.add(listener)
-    return () => this.statusListeners.delete(listener)
-  }
+  onStatus = (listener: () => void): (() => void) => this.statusChanged.listen(listener)
 
   /**
    * Total ticks delivered by adapters since the feed was created, before
@@ -106,7 +104,7 @@ export class QuoteFeed {
 
   dispose(): void {
     this.setAdapter(null)
-    this.statusListeners.clear()
+    this.statusChanged.clear()
   }
 
   private push(ticks: readonly RawTick[]): void {
@@ -138,6 +136,6 @@ export class QuoteFeed {
   private setStatus(status: ConnectionStatus): void {
     if (status === this.status) return
     this.status = status
-    for (const listener of this.statusListeners) listener()
+    this.statusChanged.emit()
   }
 }
