@@ -7,8 +7,15 @@
   --up: #15803d;
   --down: #dc2626;
   --warn: #b45309;
+  /* Price flash backgrounds, read once by PriceCell. Same in both themes. */
+  --flash-up: rgba(22, 163, 74, 0.35);
+  --flash-down: rgba(220, 38, 38, 0.35);
   color-scheme: light dark;
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
   font-size: 14px;
 }
 
@@ -189,14 +196,14 @@ fieldset.control legend {
   padding: 6px 12px;
 }
 
-/* Must match ROW_HEIGHT in QuoteTable.tsx. */
+/* --row-height is set from ROW_HEIGHT in QuoteTable.tsx. */
 .quotes tbody tr:not(.spacer) {
-  height: 28px;
+  height: var(--row-height);
 }
 
 .quotes td {
   padding: 0 12px;
-  /* Inset shadow instead of a border keeps rows exactly ROW_HEIGHT tall. */
+  /* Inset shadow instead of a border keeps rows exactly --row-height tall. */
   box-shadow: inset 0 -1px var(--line);
   white-space: nowrap;
   overflow: hidden;

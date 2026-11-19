@@ -1,6 +1,8 @@
+import type { ServerConfig } from '@tick-stream/protocol'
 import { createContext, useCallback, useContext, useSyncExternalStore, type ReactNode } from 'react'
 import type { QuoteFeed } from './QuoteFeed'
 import type { QuoteStore } from './QuoteStore'
+import type { MockAdapter } from './adapters/MockAdapter'
 import type { ConnectionStatus, Quote } from './types'
 
 export type Quotes = { store: QuoteStore; feed: QuoteFeed }
@@ -42,4 +44,9 @@ export function useQuote(symbol: string): Quote | undefined {
 export function useFeedStatus(): ConnectionStatus {
   const { feed } = useQuotes()
   return useSyncExternalStore(feed.onStatus, feed.getStatus)
+}
+
+/** Load settings and symbol list last reported by the mock server; null before the first report. */
+export function useMockConfig(adapter: MockAdapter): ServerConfig | null {
+  return useSyncExternalStore(adapter.onConfig, adapter.getConfig)
 }

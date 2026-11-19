@@ -1,7 +1,8 @@
-import { Fragment, memo } from 'react'
 import { flexRender, type Row } from '@tanstack/react-table'
-import { useQuote } from '../data'
-import { RowQuoteContext, type QuoteRowData, type quoteTableFeatures } from './quoteColumns'
+import { Fragment, memo } from 'react'
+import { useQuote } from '../../data/react'
+import type { QuoteRowData, quoteTableFeatures } from './columns'
+import { RowQuoteContext } from './rowQuote'
 
 export type QuoteTableRow = Row<typeof quoteTableFeatures, QuoteRowData>
 
