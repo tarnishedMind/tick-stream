@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { QuoteFeed } from '../QuoteFeed'
 import { QuoteStore } from '../QuoteStore'
-import { FakeSocket, ManualFrames } from '../testing'
-import type { RawTick } from '../types'
+import { ManualFrames, fakeSockets, recordingHandlers } from '../../test/fakes'
 import { BinanceAdapter, toRawTick, type BinanceAdapterOptions } from './BinanceAdapter'
 import { BINANCE_WS_URL } from './binanceProtocol'
 
@@ -21,23 +20,22 @@ const aggTrade = {
 }
 
 function setup(options: BinanceAdapterOptions = {}) {
-  const ticks: RawTick[] = []
-  const onOpen = vi.fn()
+  const sockets = fakeSockets()
+  const { handlers, ticks, onOpen } = recordingHandlers()
   const adapter = new BinanceAdapter({
-    createSocket: (url) => new FakeSocket(url),
+    createSocket: sockets.create,
     backoff: { baseMs: 100, maxMs: 1000 },
     random: () => 0.5,
     ...options,
   })
-  adapter.connect({ onTicks: (t) => ticks.push(...t), onOpen, onStatus: () => {} })
-  const socket = () => FakeSocket.instances.at(-1)!
+  adapter.connect(handlers)
+  const socket = sockets.last
   socket().serverOpen()
   const frames = () => socket().sent.map((s) => JSON.parse(s))
-  return { adapter, ticks, onOpen, socket, frames }
+  return { adapter, ticks, onOpen, sockets, socket, frames }
 }
 
 beforeEach(() => {
-  FakeSocket.instances = []
   vi.useFakeTimers()
   vi.spyOn(console, 'warn').mockImplementation(() => {})
 })
@@ -62,7 +60,9 @@ describe('aggTrade mapping', () => {
   it('emits ticks from raw and combined-stream messages, ignores replies and junk', () => {
     const { ticks, socket } = setup()
     socket().serverMessage(JSON.stringify(aggTrade))
-    socket().serverMessage(JSON.stringify({ stream: 'ethusdt@aggTrade', data: { ...aggTrade, s: 'ETHUSDT', p: '3500.5' } }))
+    socket().serverMessage(
+      JSON.stringify({ stream: 'ethusdt@aggTrade', data: { ...aggTrade, s: 'ETHUSDT', p: '3500.5' } }),
+    )
     socket().serverMessage('{"result":null,"id":1}')
     socket().serverMessage('not json')
     expect(ticks).toEqual([
@@ -159,23 +159,24 @@ describe('BinanceAdapter frames', () => {
 
 describe('BinanceAdapter reconnect', () => {
   it('resubscribes through the feed after a drop (e.g. the 24h disconnect)', () => {
+    const sockets = fakeSockets()
     const adapter = new BinanceAdapter({
-      createSocket: (url) => new FakeSocket(url),
+      createSocket: sockets.create,
       backoff: { baseMs: 100, maxMs: 1000 },
       random: () => 0.5,
     })
     const feed = new QuoteFeed(new QuoteStore(), new ManualFrames())
     feed.setAdapter(adapter)
-    FakeSocket.instances.at(-1)!.serverOpen()
+    sockets.last().serverOpen()
     feed.retain('BTCUSDT')
     feed.retain('ETHUSDT')
     vi.advanceTimersByTime(1000)
 
-    FakeSocket.instances.at(-1)!.serverDrop()
+    sockets.last().serverDrop()
     expect(adapter.activeSymbols()).toEqual([])
     vi.advanceTimersByTime(1000)
-    const next = FakeSocket.instances.at(-1)!
-    expect(FakeSocket.instances).toHaveLength(2)
+    const next = sockets.last()
+    expect(sockets.all).toHaveLength(2)
     next.serverOpen()
     vi.advanceTimersByTime(0)
     expect(next.sent.map((s) => JSON.parse(s))).toEqual([
@@ -184,33 +185,33 @@ describe('BinanceAdapter reconnect', () => {
   })
 
   it('reconnects when a subscribed connection goes silent', () => {
-    const { adapter, socket, onOpen } = setup({ staleAfterMs: 3000 })
+    const { adapter, socket, onOpen, sockets } = setup({ staleAfterMs: 3000 })
     adapter.subscribe(['BTCUSDT'])
     vi.advanceTimersByTime(2000)
     socket().serverMessage(JSON.stringify(aggTrade))
     vi.advanceTimersByTime(2000)
-    expect(FakeSocket.instances).toHaveLength(1)
+    expect(sockets.all).toHaveLength(1)
 
     vi.advanceTimersByTime(2000) // 4 s without a message
-    expect(FakeSocket.instances[0]!.closeCalls).toBe(1)
+    expect(sockets.all[0]!.closeCalls).toBe(1)
     vi.advanceTimersByTime(1000)
-    expect(FakeSocket.instances).toHaveLength(2)
+    expect(sockets.all).toHaveLength(2)
     socket().serverOpen()
     expect(onOpen).toHaveBeenCalledTimes(2)
   })
 
   it('does not treat silence without subscriptions as stale', () => {
-    setup({ staleAfterMs: 3000 })
+    const { sockets } = setup({ staleAfterMs: 3000 })
     vi.advanceTimersByTime(60_000)
-    expect(FakeSocket.instances).toHaveLength(1)
+    expect(sockets.all).toHaveLength(1)
   })
 
   it('stops timers on close()', () => {
-    const { adapter, socket } = setup({ staleAfterMs: 3000 })
+    const { adapter, socket, sockets } = setup({ staleAfterMs: 3000 })
     adapter.subscribe(['BTCUSDT'])
     adapter.close()
     vi.advanceTimersByTime(60_000)
     expect(socket().sent).toEqual([])
-    expect(FakeSocket.instances).toHaveLength(1)
+    expect(sockets.all).toHaveLength(1)
   })
 })

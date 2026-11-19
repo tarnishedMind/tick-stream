@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { QuoteFeed } from './QuoteFeed'
 import { QuoteStore } from './QuoteStore'
-import { FakeAdapter, ManualFrames } from './testing'
+import { FakeAdapter, ManualFrames } from '../test/fakes'
 
 let store: QuoteStore
 let frames: ManualFrames
