@@ -14,7 +14,10 @@ export class Market {
   private symbolList: string[] = []
   private readonly prices = new Map<string, number>()
 
-  constructor(initial: LoadConfig, private readonly random: () => number = Math.random) {
+  constructor(
+    initial: LoadConfig,
+    private readonly random: () => number = Math.random,
+  ) {
     this.config = { tps: 0, symbols: 0 }
     this.configure(initial)
   }

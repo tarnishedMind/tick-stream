@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@tick-stream/protocol": "workspace:*",
     "ws": "^8.18.2"
   },
   "devDependencies": {

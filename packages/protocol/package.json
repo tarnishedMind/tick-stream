@@ -1,0 +1,16 @@
+{
+  "name": "@tick-stream/protocol",
+  "description": "Wire protocol shared by the mock server and the web app: tick format, mock server messages and limits",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}
